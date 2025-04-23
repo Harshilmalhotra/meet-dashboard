@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import backgroundVideo from '../assets/videoplayback.mp4'; // Adjust the video file name/path as needed
+import backgroundVideo from '../assets/videoplayback.mp4';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -9,7 +9,6 @@ function Dashboard() {
     navigate(path);
   };
 
-  // Background style with video and overlay
   const backgroundStyle = {
     position: 'relative',
     minHeight: '100vh',
@@ -18,7 +17,7 @@ function Dashboard() {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden'
+    overflow: 'hidden',
   };
 
   const videoStyle = {
@@ -28,7 +27,7 @@ function Dashboard() {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
-    zIndex: -2
+    zIndex: -2,
   };
 
   const overlayStyle = {
@@ -37,16 +36,16 @@ function Dashboard() {
     left: 0,
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // 50% opacity black overlay
-    zIndex: -1
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: -1,
   };
 
   const buttonStyle = {
-    background: '#ffffff', // White background
+    background: '#ffffff',
     transition: 'all 0.3s ease',
     padding: '1rem 1.5rem',
     borderRadius: '0.5rem',
-    color: '#1f2937', // Dark gray text for contrast
+    color: '#1f2937',
     fontWeight: '500',
     fontSize: '1.125rem',
     width: '100%',
@@ -56,34 +55,22 @@ function Dashboard() {
     fontFamily: 'Montserrat, Helvetica Neue, sans-serif',
     letterSpacing: '0.025em',
     border: 'none',
-    cursor: 'pointer'
+    cursor: 'pointer',
   };
 
   const buttonHoverStyle = {
-    background: '#E97451', // Red to dark gray gradient
-    color: 'white'
+    background: '#E97451',
+    color: 'white',
   };
 
   const titleStyle = {
-    fontSize: '2.75rem', 
-    fontWeight: '300', 
-    color: 'white', 
+    fontSize: '2.75rem',
+    fontWeight: '300',
+    color: 'white',
     marginBottom: '3rem',
     fontFamily: 'Montserrat, Helvetica Neue, sans-serif',
-    letterSpacing: '0.05em'
+    letterSpacing: '0.05em',
   };
-
-  // Adding font import to the document head
-  React.useEffect(() => {
-    const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&display=swap';
-    link.rel = 'stylesheet';
-    document.head.appendChild(link);
-    
-    return () => {
-      document.head.removeChild(link);
-    };
-  }, []);
 
   return (
     <div style={backgroundStyle}>
@@ -106,30 +93,21 @@ function Dashboard() {
         
         <div style={{ maxWidth: '28rem', margin: '0 auto' }}>
           <button 
-            onClick={() => handleNavigation('/real-time-sales')}
+            onClick={() => handleNavigation('/xyz')}
             style={buttonStyle}
             onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonHoverStyle)}
             onMouseLeave={(e) => Object.assign(e.currentTarget.style, { background: '#ffffff', color: '#1f2937' })}
           >
-            Real-Time Sales Visualization
+            Xyz
           </button>
           
           <button 
-            onClick={() => handleNavigation('/strategy-canvas')}
+            onClick={() => handleNavigation('/sales-chart')}
             style={buttonStyle}
             onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonHoverStyle)}
             onMouseLeave={(e) => Object.assign(e.currentTarget.style, { background: '#ffffff', color: '#1f2937' })}
           >
-            Strategy Canvas Generator
-          </button>
-          
-          <button 
-            onClick={() => handleNavigation('/financial-forecast')}
-            style={buttonStyle}
-            onMouseEnter={(e) => Object.assign(e.currentTarget.style, buttonHoverStyle)}
-            onMouseLeave={(e) => Object.assign(e.currentTarget.style, { background: '#ffffff', color: '#1f2937' })}
-          >
-            Instant Financial Forecast Sketcher
+            Sales Chart
           </button>
         </div>
       </div>
