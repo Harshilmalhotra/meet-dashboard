@@ -11,63 +11,107 @@ function Dashboard() {
 
   const API_KEY = 'ms_CgkVY32AGXpHuItxObpNYJcdGJZuPCkL';
   const BASE_URL = 'https://api-meetstream-tst-hackathon.meetstream.ai/api/v1';
+  const WEBHOOK_URL = 'https://60e9-103-4-221-252.ngrok-free.app/transcripts';
 
   const handleNavigation = (path) => {
     navigate(path);
   };
 
-  const handleBotJoin = async () => {
-    if (!zoomLink.startsWith('http')) {
-      setStatusMessage('Please enter a valid Zoom link.');
+  const isValidZoomLink = (link) => {
+    // Accept /j/ or /w/, any meeting ID, optional query params
+    const zoomRegex = /^https?:\/\/([a-z0-9-]+\.)?zoom\.us\/(j|w)\/[^/?]+(\?.*)?$/;
+    return zoomRegex.test(link);
+  };
+
+  const checkWebhookAvailability = async () => {
+    try {
+      const response = await fetch(WEBHOOK_URL, { method: 'HEAD', mode: 'no-cors' });
+      console.log('Webhook check response:', response);
+      return true; // no-cors doesn't guarantee success, but proceed
+    } catch (error) {
+      console.error('Webhook unavailable:', error);
+      return false;
+    }
+  };
+
+  const handleBotJoin = async (retryCount = 0) => {
+    if (!zoomLink) {
+      setStatusMessage('Please enter a Zoom link.');
+      return;
+    }
+    if (!isValidZoomLink(zoomLink)) {
+      setStatusMessage('Invalid Zoom link. Use format: https://zoom.us/j/<meeting_id> or https://zoom.us/w/<meeting_id>');
       return;
     }
 
     setLoading(true);
     setStatusMessage('');
 
+    const webhookAvailable = await checkWebhookAvailability();
+    if (!webhookAvailable) {
+      setStatusMessage('⚠️ Webhook server may be down. Ensure ngrok is running.');
+    }
+
+    const payload = {
+      meeting_link: zoomLink,
+      bot_name: '2 Fast 2 Curious BOT',
+      audio_required: true,
+      video_required: false,
+      live_audio_required: {},
+      live_transcription_required: {
+        webhook_url: WEBHOOK_URL
+      }
+    };
+
     try {
+      console.log('Sending API request:', { url: `${BASE_URL}/bots/create_bot`, payload });
       const response = await fetch(`${BASE_URL}/bots/create_bot`, {
         method: 'POST',
         headers: {
-          'Authorization': API_KEY,
+          'Authorization': `Bearer ${API_KEY}`,
+          'X-API-Key': API_KEY,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          meeting_link: zoomLink,
-          bot_name: '2 Fast 2 Curious BOT',
-          audio_required: true,
-          video_required: false,
-          live_audio_required: {},
-          live_transcription_required: {
-            webhook_url: 'https://60e9-103-4-221-252.ngrok-free.app/transcripts'
-          }
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
+      console.log('API response:', { status: response.status, headers: [...response.headers], data });
 
       if (response.ok) {
         setStatusMessage('✅ Bot successfully joined the meeting!');
         setZoomLink('');
-        setShowBotBox(false); // Close the box on success
+        setShowBotBox(false);
       } else {
-        setStatusMessage(`❌ Error: ${data.detail || 'Something went wrong.'}`);
+        const errorMsg = data.detail || data.message || 'Unknown error';
+        setStatusMessage(`❌ Error: ${errorMsg}`);
+        if (errorMsg.toLowerCase().includes('api key')) {
+          setStatusMessage('❌ Invalid API key. Contact Meetstream support.');
+        } else if (errorMsg.toLowerCase().includes('webhook') && retryCount < 2) {
+          console.log(`Retrying with default webhook (attempt ${retryCount + 1})...`);
+          payload.live_transcription_required.webhook_url = 'https://default-webhook.example.com';
+          setTimeout(() => handleBotJoin(retryCount + 1), 2000);
+        }
       }
     } catch (error) {
+      console.error('Request failed:', error);
       setStatusMessage(`❌ Request failed: ${error.message}`);
+      if (error.message.includes('network') && retryCount < 2) {
+        console.log(`Retrying after network error (attempt ${retryCount + 1})...`);
+        setTimeout(() => handleBotJoin(retryCount + 1), 2000);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Listen for paste events to auto-open the Zoom input box
   useEffect(() => {
     const handlePaste = (event) => {
       const pastedText = (event.clipboardData || window.clipboardData).getData('text');
-      if (pastedText.startsWith('http') && pastedText.includes('zoom.us')) {
+      if (isValidZoomLink(pastedText)) {
         setZoomLink(pastedText);
         setShowBotBox(true);
-        setStatusMessage(''); // Clear any previous status
+        setStatusMessage('');
       }
     };
 
@@ -77,7 +121,6 @@ function Dashboard() {
     };
   }, []);
 
-  // Handle Enter key to submit the Zoom link
   const handleKeyDown = (event) => {
     if (event.key === 'Enter' && !loading) {
       handleBotJoin();
@@ -136,7 +179,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Bottom Right - Bot trigger button */}
       <div style={{
         position: 'fixed',
         bottom: '20px',
@@ -162,7 +204,6 @@ function Dashboard() {
         A
       </div>
 
-      {/* Zoom Input Box */}
       {showBotBox && (
         <div style={{
           position: 'fixed',
@@ -183,7 +224,7 @@ function Dashboard() {
             value={zoomLink}
             onChange={(e) => setZoomLink(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="https://zoom.us/..."
+            placeholder="https://zoom.us/j/..."
             style={{
               width: '100%',
               padding: '0.5rem',
