@@ -7,17 +7,25 @@ import Select from 'react-select';
 
 const extractForecast = (transcript) => {
   const lowerTranscript = transcript.toLowerCase();
-  if (lowerTranscript.includes('next quarter')) {
-    return { period: 'Next Quarter', growthPercent: 10 };
-  } else if (lowerTranscript.includes('july')) {
-    return { period: 'July', growthPercent: 5 };
+  const timeKeywords = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december', 'next quarter', 'q1', 'q2', 'q3', 'q4'];
+  const percentMatch = lowerTranscript.match(/(\d+)\s*percent/);
+  const growthPercent = percentMatch ? parseInt(percentMatch[1]) : 10; // Default 10% if no percent specified
+
+  for (const period of timeKeywords) {
+    if (lowerTranscript.includes(period)) {
+      return { period: period.charAt(0).toUpperCase() + period.slice(1), growthPercent };
+    }
   }
   return null;
 };
 
 function SalesChart() {
   const [transcripts, setTranscripts] = useState([]);
-  const [graphData, setGraphData] = useState([]);
+  const [graphData, setGraphData] = useState([
+    { time: 'January', sales: 100 },
+    { time: 'February', sales: 40 },
+    { time: 'March', sales: 150 }
+  ]);
   const [forecastData, setForecastData] = useState(null);
   const [graphType, setGraphType] = useState('line');
   const [selectedPeriod, setSelectedPeriod] = useState('All');
@@ -44,28 +52,41 @@ function SalesChart() {
 
     socket.onmessage = async (event) => {
       try {
-        console.log('Raw WebSocket message:', event.data); // Debug raw data
-        const message = JSON.parse(event.data);
-        console.log('Parsed message:', message); // Debug parsed data
-        if (message.type === 'transcript' && message.data.text) {
+        console.log('Raw WebSocket message:', event.data);
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch (parseError) {
+          console.warn('Failed to parse JSON, treating as raw text:', event.data);
+          message = { type: 'transcript', data: { text: event.data, timestamp: new Date().toISOString() } };
+        }
+        console.log('Parsed message:', message);
+
+        if (message.type === 'transcript' && message.data?.text) {
           const newTranscript = {
-            ...message.data,
+            text: message.data.text,
             timestamp: message.data.timestamp ? new Date(message.data.timestamp) : new Date(),
           };
+          console.log('New transcript:', newTranscript);
           setTranscripts((prev) => [...prev, newTranscript].slice(-1000));
 
           // Process forecast
           const forecast = extractForecast(newTranscript.text);
           if (forecast) {
             console.log('Forecast detected:', forecast);
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-            const sales = [200, 50, 1000, 10, 0, 110];
-            const last = sales[sales.length - 1];
-            const predicted = Math.round(last * (1 + forecast.growthPercent / 100));
+            const lastSales = graphData[graphData.length - 1].sales; // March: 150
+            const predicted = Math.round(lastSales * (1 + forecast.growthPercent / 100));
             setForecastData({
               title: `Forecast for ${forecast.period}`,
               data: [
-                ...months.map((m, i) => ({ name: m, value: sales[i] })),
+                ...graphData.map(item => ({ name: item.time, value: item.sales })),
+                { name: forecast.period, value: predicted }
+              ]
+            });
+            console.log('Forecast data set:', {
+              title: `Forecast for ${forecast.period}`,
+              data: [
+                ...graphData.map(item => ({ name: item.time, value: item.sales })),
                 { name: forecast.period, value: predicted }
               ]
             });
@@ -73,14 +94,14 @@ function SalesChart() {
             console.log('No forecast detected for:', newTranscript.text);
           }
 
-          // Trigger chart update for any transcript (for testing)
-          console.log('Processing transcript:', newTranscript.text);
+          // Process sales chart
+          console.log('Processing transcript for sales chart:', newTranscript.text);
           processTranscriptions([...transcripts, newTranscript], selectedPeriod);
         } else {
           console.warn('Invalid message format:', message);
         }
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error, 'Raw data:', event.data);
+        console.error('Error processing WebSocket message:', error, 'Raw data:', event.data);
       }
     };
 
@@ -91,9 +112,9 @@ function SalesChart() {
 
     socket.onclose = () => {
       console.log('❌ WebSocket disconnected');
-      setConnectionStatus('Disconnected');
+      setConnectionStatus(`Disconnected (Retry ${retryCount + 1})`);
       if (isFetching) {
-        const delay = Math.min(1000 * 2 ** retryCount, 30000); // Exponential backoff
+        const delay = Math.min(1000 * 2 ** retryCount, 30000);
         console.log(`Retrying connection in ${delay}ms...`);
         setTimeout(() => connectWebSocket(retryCount + 1), delay);
       }
@@ -128,45 +149,63 @@ function SalesChart() {
     });
 
     const aiResponse = await simulateInsight7Analysis(filteredTranscripts);
-    console.log('Processed graph data:', aiResponse.data);
-    setGraphData(aiResponse.data);
+    console.log('Processed graph data:', aiResponse.data, 'Graph type:', aiResponse.graphType);
+    if (aiResponse.data.length > 0) {
+      setGraphData(aiResponse.data);
+    } // Keep hardcoded data if no new data
     setGraphType(aiResponse.graphType);
   };
 
   const simulateInsight7Analysis = async (transcripts) => {
     const transcriptText = transcripts.map(t => t.text.toLowerCase()).join(' ');
     console.log('Transcript text for analysis:', transcriptText);
-    const salesKeywords = ['sales', 'revenue', 'profit', 'income', 'deal', 'contract'];
-    const timeKeywords = ['january', 'february', 'march', 'q1', 'q2', '2024', '2025', 'today', 'yesterday'];
-    const valueKeywords = ['\\$\\d+k?', '\\d+%'];
+    const salesKeywords = ['sales', 'revenue', 'profit', 'income', 'deal', 'contract', 'chart'];
+    const timeKeywords = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december', 'today', 'yesterday'];
+    const valueKeywords = ['\\$\\d+k?', '\\d+\\s*percent'];
 
     if (!salesKeywords.some(k => transcriptText.includes(k))) {
       console.log('No sales keywords found');
-      return { data: [], graphType: 'line' };
+      return { data: graphData, graphType: 'line' }; // Return hardcoded data
     }
 
     const isDaily = transcriptText.includes('today') || transcriptText.includes('yesterday');
-    const isMonthly = timeKeywords.some(k => transcriptText.includes(k.toLowerCase()));
     const graphType = isDaily ? 'bar' : 'line';
 
-    const data = [];
+    const data = [...graphData]; // Start with hardcoded data
     const valueRegex = new RegExp(valueKeywords.join('|'), 'g');
     const matches = transcriptText.match(valueRegex) || [];
     console.log('Value matches:', matches);
 
     if (graphType === 'line') {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr'];
-      months.forEach((month, i) => {
-        const monthTranscripts = transcripts.filter(t => t.text.toLowerCase().includes(month.toLowerCase()));
+      const timePeriods = [];
+      transcripts.forEach(t => {
+        const lowerText = t.text.toLowerCase();
+        for (const period of timeKeywords) {
+          if (lowerText.includes(period) && !timePeriods.includes(period)) {
+            timePeriods.push(period);
+          }
+        }
+      });
+
+      timePeriods.forEach((period) => {
+        const periodTranscripts = transcripts.filter(t => t.text.toLowerCase().includes(period));
         let salesValue = 0;
-        monthTranscripts.forEach(t => {
-          const match = t.text.match(/\$(\d+k?)/i);
-          if (match) {
-            salesValue += parseInt(match[1].replace('k', '000')) || 0;
+        periodTranscripts.forEach(t => {
+          const dollarMatch = t.text.match(/\$(\d+k?)/i);
+          const percentMatch = t.text.match(/(\d+)\s*percent/i);
+          if (dollarMatch) {
+            salesValue += parseInt(dollarMatch[1].replace('k', '000')) || 0;
+          } else if (percentMatch) {
+            salesValue += parseInt(percentMatch[1]) * 1000; // Scale percent to dollars
           }
         });
-        if (salesValue > 0 || matches.length > 0) {
-          data.push({ time: month, sales: salesValue || (i + 1) * 10000 });
+        if (salesValue > 0) {
+          const existingIndex = data.findIndex(d => d.time.toLowerCase() === period);
+          if (existingIndex !== -1) {
+            data[existingIndex] = { time: period.charAt(0).toUpperCase() + period.slice(1), sales: salesValue };
+          } else {
+            data.push({ time: period.charAt(0).toUpperCase() + period.slice(1), sales: salesValue });
+          }
         }
       });
     } else {
@@ -175,13 +214,16 @@ function SalesChart() {
         const dayTranscripts = transcripts.filter(t => t.timestamp.getDate() === new Date().getDate() - i);
         let salesValue = 0;
         dayTranscripts.forEach(t => {
-          const match = t.text.match(/\$(\d+k?)/i);
-          if (match) {
-            salesValue += parseInt(match[1].replace('k', '000')) || 0;
+          const dollarMatch = t.text.match(/\$(\d+k?)/i);
+          const percentMatch = t.text.match(/(\d+)\s*percent/i);
+          if (dollarMatch) {
+            salesValue += parseInt(dollarMatch[1].replace('k', '000')) || 0;
+          } else if (percentMatch) {
+            salesValue += parseInt(percentMatch[1]) * 1000;
           }
         });
-        if (salesValue > 0 || matches.length > 0) {
-          data.push({ time: day, sales: salesValue || (i + 1) * 5000 });
+        if (salesValue > 0) {
+          data.push({ time: day, sales: salesValue });
         }
       });
     }
@@ -189,8 +231,34 @@ function SalesChart() {
     return { data, graphType };
   };
 
+  const filterGraphDataByPeriod = () => {
+    if (selectedPeriod === 'All') return graphData;
+    const filtered = graphData.filter(item => {
+      const monthMap = {
+        'January': '01',
+        'February': '02',
+        'March': '03',
+        'April': '04',
+        'May': '05',
+        'June': '06',
+        'July': '07',
+        'August': '08',
+        'September': '09',
+        'October': '10',
+        'November': '11',
+        'December': '12'
+      };
+      const month = monthMap[item.time];
+      if (!month) return false;
+      if (selectedPeriod.length === 4) return true;
+      const [year, selectedMonth] = selectedPeriod.split('-');
+      return year === '2025' && month === selectedMonth;
+    });
+    return filtered.length > 0 ? filtered : graphData;
+  };
+
   const downloadGraphData = () => {
-    const data = JSON.stringify(graphData, null, 2);
+    const data = JSON.stringify(filterGraphDataByPeriod(), null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -326,7 +394,7 @@ function SalesChart() {
             Sales Analysis
           </h3>
           <div style={{ height: '24rem' }}>
-            {graphData.length === 0 ? (
+            {filterGraphDataByPeriod().length === 0 ? (
               <p
                 style={{
                   fontSize: '1rem',
@@ -334,12 +402,12 @@ function SalesChart() {
                   textAlign: 'center',
                 }}
               >
-                No sales data available. Start fetching transcriptions to generate the chart.
+                No sales data available for selected period.
               </p>
             ) : graphType === 'line' ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={graphData}
+                  data={filterGraphDataByPeriod()}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
@@ -353,7 +421,7 @@ function SalesChart() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={graphData}
+                  data={filterGraphDataByPeriod()}
                   margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
