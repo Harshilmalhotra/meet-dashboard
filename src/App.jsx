@@ -2,8 +2,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
-import Xyz from './pages/Xyz';
-import SalesChart from './pages/SalesChart';
+import Xyz from './pages/xyz';
+import SalesChart from './pages/Saleschart';
 
 function App() {
   return (
