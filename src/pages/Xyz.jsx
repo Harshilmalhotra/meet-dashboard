@@ -33,18 +33,35 @@ export default function LiveDashboard() {
   }, []);
 
   return (
-    <div className="p-4 space-y-6">
-      <h2 className="text-xl font-bold">🎤 Live Transcripts</h2>
-      <div className="bg-white p-4 rounded-lg shadow space-y-2 max-h-64 overflow-auto">
+    <div style={{ padding: "1.5rem", fontFamily: "Arial, sans-serif", backgroundColor: "#f9fafb", minHeight: "100vh" }}>
+      <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "1rem" }}>🎤 Live Transcripts</h2>
+      <div style={{
+        backgroundColor: "#fff",
+        padding: "1rem",
+        borderRadius: "12px",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+        maxHeight: "250px",
+        overflowY: "auto",
+        marginBottom: "2rem"
+      }}>
         {transcripts.map((t, i) => (
-          <p key={i}><strong>{t.speaker}:</strong> {t.text}</p>
+          <p key={i} style={{ marginBottom: "0.5rem" }}>
+            <strong style={{ color: "#2563eb" }}>{t.speaker}:</strong> {t.text}
+          </p>
         ))}
       </div>
 
-      <h2 className="text-xl font-bold">📋 Detected Tasks</h2>
-      <div className="bg-white p-4 rounded-lg shadow space-y-2 max-h-64 overflow-auto">
+      <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "1rem" }}>📋 Detected Tasks</h2>
+      <div style={{
+        backgroundColor: "#fff",
+        padding: "1rem",
+        borderRadius: "12px",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+        maxHeight: "250px",
+        overflowY: "auto"
+      }}>
         {tasks.map((task, i) => (
-          <div key={i} className="border-b pb-2">
+          <div key={i} style={{ borderBottom: "1px solid #e5e7eb", paddingBottom: "0.75rem", marginBottom: "0.75rem" }}>
             <p><strong>Task:</strong> {task.task}</p>
             <p><strong>Assignee:</strong> {task.assignee}</p>
             <p><strong>Due:</strong> {task.due}</p>
