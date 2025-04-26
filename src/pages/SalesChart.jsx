@@ -5,7 +5,8 @@ import {
 } from 'recharts';
 import Select from 'react-select';
 
-const GEMINI_API_KEY = 'AIzaSyB2WSOVbEpZnMTsWOC8ksH8XTpU6LOrSW0'; // Replace with your Gemini API key
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+ // Replace with your Gemini API key
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 const extractForecast = (transcript, historicalData) => {
